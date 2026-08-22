@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -13,24 +16,44 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Node.js for Cordova CLI
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      # JDK 17 is required by the current Android SDK command-line tools
+      - name: Setup Java 17 for Android SDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Verify Java 17
+        run: |
+          java -version
+          echo "JAVA_HOME=$JAVA_HOME"
+
+      # Current Android SDK setup action
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      # Cordova Android 11 requires JDK 11
+      - name: Setup Java 11 for Cordova
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '11'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Verify Java 11
+        run: |
+          java -version
+          echo "JAVA_HOME=$JAVA_HOME"
 
       - name: Install Cordova
         run: npm install -g cordova@12.0.0
 
-      - name: Add Android platform (pinned stable version)
+      - name: Add Android platform
         run: cordova platform add android@11.0.0
 
       - name: Install plugins & build APK
@@ -41,3 +64,4 @@ jobs:
         with:
           name: MustWake-apk
           path: platforms/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
