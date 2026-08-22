@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width, viewport-fit=cover">
+    <meta http-equiv="Content-Security-Policy" content="default-src * 'self' 'unsafe-inline' 'unsafe-eval' data: gap: https://ssl.gstatic.com; style-src * 'self' 'unsafe-inline'; media-src *; img-src * data: content:;">
+    <title>MustWake</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- ================= হোম স্ক্রিন ================= -->
+    <div id="screen-home" class="screen active">
+        <header class="topbar">
+            <h1>⏰ MustWake</h1>
+        </header>
+
+        <div class="clock-preview" id="liveClock">00:00</div>
+
+        <div id="alarmList" class="alarm-list"></div>
+
+        <button id="btnAddAlarm" class="fab">+</button>
+    </div>
+
+    <!-- ================= অ্যালার্ম তৈরি স্ক্রিন ================= -->
+    <div id="screen-create" class="screen">
+        <header class="topbar">
+            <button class="back-btn" id="btnCancelCreate">✕</button>
+            <h1>নতুন অ্যালার্ম</h1>
+            <button class="save-btn" id="btnSaveAlarm">সেভ</button>
+        </header>
+
+        <div class="form-section">
+            <label>সময় নির্বাচন করুন</label>
+            <input type="time" id="alarmTime" class="time-input">
+        </div>
+
+        <div class="form-section">
+            <label>লেবেল</label>
+            <input type="text" id="alarmLabel" placeholder="যেমন: সকালের অফিস" class="text-input">
+        </div>
+
+        <div class="form-section">
+            <label>পুনরাবৃত্তি (দিন)</label>
+            <div class="day-picker" id="dayPicker">
+                <span class="day" data-day="0">রবি</span>
+                <span class="day" data-day="1">সোম</span>
+                <span class="day" data-day="2">মঙ্গল</span>
+                <span class="day" data-day="3">বুধ</span>
+                <span class="day" data-day="4">বৃহঃ</span>
+                <span class="day" data-day="5">শুক্র</span>
+                <span class="day" data-day="6">শনি</span>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <label>🔊 রিংটোন সিলেক্ট করুন</label>
+            <select id="ringtoneSelect" class="select-input">
+                <option value="classic">🔔 ক্লাসিক বিপ (ডিফল্ট)</option>
+                <option value="gentle">🎐 জেন্টল চাইম</option>
+                <option value="urgent">🚨 আর্জেন্ট পালস</option>
+                <option value="digital">📟 ডিজিটাল ওয়েভ</option>
+                <option value="bell">🛎️ সফট বেল</option>
+                <option value="custom_file">📁 ফোন থেকে গান/গজল সিলেক্ট করুন</option>
+                <option value="voice">🎙️ নিজের ভয়েস রেকর্ড করুন</option>
+            </select>
+            <button type="button" id="btnPreviewTone" class="preview-tone-btn">▶ শুনে দেখুন</button>
+
+            <!-- ফোন থেকে অডিও ফাইল সিলেক্ট -->
+            <div id="customFileWrap" class="sub-panel" style="display:none;">
+                <input type="file" id="customAudioFile" accept="audio/*" class="text-input">
+                <div id="customFileName" class="file-status"></div>
+            </div>
+
+            <!-- ভয়েস রেকর্ডিং প্যানেল -->
+            <div id="voiceRecordWrap" class="sub-panel" style="display:none;">
+                <p class="hint-text">যেমন: "ইয়াকিন, ঘুম থেকে ওঠো" অথবা "এখন পড়ার সময়" — যা খুশি রেকর্ড করুন</p>
+                <button type="button" id="btnStartRecord" class="record-btn">🎙️ রেকর্ড শুরু করুন</button>
+                <button type="button" id="btnStopRecord" class="record-btn stop" style="display:none;">⏹ রেকর্ড বন্ধ করুন</button>
+                <div id="recordStatus" class="file-status"></div>
+                <audio id="voicePlayback" controls style="display:none; width:100%; margin-top:10px;"></audio>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <label>এলার্ম বন্ধের চ্যালেঞ্জ (Mission)</label>
+            <select id="missionType" class="select-input">
+                <option value="math">🔢 ম্যাথ সমস্যা (যোগ)</option>
+                <option value="typing">⌨️ বাক্য টাইপ করা</option>
+                <option value="password">🔑 কাস্টম পাসওয়ার্ড</option>
+                <option value="shake">🚶 শেক / মোশন চ্যালেঞ্জ</option>
+                <option value="photo">📷 ছবি ম্যাচ (আয়না/দরজা/অবজেক্ট) — Phase 2</option>
+                <option value="none">চ্যালেঞ্জ ছাড়া (সাধারণ)</option>
+            </select>
+        </div>
+
+        <div class="form-section" id="mathDifficultyWrap">
+            <label>ম্যাথ কঠিনতা</label>
+            <select id="mathDifficulty" class="select-input">
+                <option value="easy">সহজ (১-২ ডিজিট, যোগ)</option>
+                <option value="medium">মাঝারি (২-৩ ডিজিট, যোগ/বিয়োগ)</option>
+                <option value="hard">কঠিন (২ ডিজিট গুণ)</option>
+            </select>
+            <label style="margin-top:10px;">কতবার সঠিক উত্তর দিতে হবে</label>
+            <input type="number" id="mathRounds" class="text-input" min="1" max="5" value="1">
+        </div>
+
+        <div class="form-section" id="passwordWrap" style="display:none;">
+            <label>পাসওয়ার্ড সেট করুন</label>
+            <input type="text" id="alarmPassword" class="text-input" placeholder="যেমন: উঠবোই123">
+        </div>
+
+        <div class="form-section" id="typingWrap" style="display:none;">
+            <label>টাইপ করার বাক্য</label>
+            <input type="text" id="typingSentence" class="text-input" placeholder="যেমন: আমি এখন ঘুম থেকে উঠছি">
+        </div>
+
+        <div class="form-section">
+            <label>স্নুজ অনুমতি দিন</label>
+            <label class="switch">
+                <input type="checkbox" id="allowSnooze" checked>
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="form-section">
+            <label>ধীরে ধীরে ভলিউম বাড়বে (Gradual Volume)</label>
+            <label class="switch">
+                <input type="checkbox" id="gradualVolume" checked>
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <!-- ================= অ্যালার্ম রিং স্ক্রিন (ফুল স্ক্রিন লক) ================= -->
+    <div id="screen-ring" class="screen ring-screen">
+        <div class="ring-time" id="ringTime">07:00</div>
+        <div class="ring-label" id="ringLabel">অ্যালার্ম</div>
+
+        <div id="missionArea" class="mission-area">
+            <!-- ডায়নামিকভাবে জেনারেট হবে -->
+        </div>
+
+        <button id="btnSnooze" class="snooze-btn">১০ মিনিট স্নুজ</button>
+    </div>
+
+    <script src="cordova.js"></script>
+    <script src="js/ringtones.js"></script>
+    <script src="js/alarm-engine.js"></script>
+    <script src="js/missions.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

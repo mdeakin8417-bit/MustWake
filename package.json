@@ -1,0 +1,22 @@
+{
+  "name": "mustwake",
+  "displayName": "MustWake",
+  "version": "1.0.0",
+  "description": "চ্যালেঞ্জ ছাড়া বন্ধ হয় না এমন ডিজিটাল অ্যালার্ম অ্যাপ",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"no test\" && exit 0"
+  },
+  "cordova": {
+    "platforms": [
+      "android"
+    ],
+    "plugins": {
+      "cordova-plugin-local-notification": {},
+      "cordova-plugin-vibration": {},
+      "cordova-plugin-camera": {},
+      "cordova-plugin-media": {},
+      "cordova-plugin-device": {}
+    }
+  }
+}
