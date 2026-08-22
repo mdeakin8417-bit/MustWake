@@ -28,18 +28,10 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Cordova
-        run: npm install -g cordova
+        run: npm install -g cordova@12.0.1
 
-      - name: Add Android platform
-        run: cordova platform add android
-
-      - name: Prepare Plugins
-        run: cordova prepare android
-
-      - name: Fix Deprecated Gradle Syntax in Plugins
-        run: |
-          find platforms/android/ -type f \( -name "*.gradle" -o -name "*.xml" \) -exec sed -i 's/compile /implementation /g' {} +
-          find platforms/android/ -type f \( -name "*.gradle" -o -name "*.xml" \) -exec sed -i 's/compile(/implementation(/g' {} +
+      - name: Add Android platform (pinned stable version)
+        run: cordova platform add android@13.0.0
 
       - name: Install plugins & build APK
         run: cordova build android --release -- --packageType=apk
@@ -49,4 +41,3 @@ jobs:
         with:
           name: MustWake-apk
           path: platforms/android/app/build/outputs/apk/release/*.apk
-          
