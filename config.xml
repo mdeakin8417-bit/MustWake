@@ -32,10 +32,10 @@
     <preference name="DisallowOverscroll" value="true" />
 
     <!-- Android SDK -->
-    <!-- cordova-android 11.0.0 compatible SDK -->
+    <!-- cordova-android 13.0.0 compatible SDK -->
     <preference name="android-minSdkVersion" value="24" />
-    <preference name="android-targetSdkVersion" value="32" />
-    <preference name="android-compileSdkVersion" value="32" />
+    <preference name="android-targetSdkVersion" value="34" />
+    <preference name="android-compileSdkVersion" value="34" />
 
     <!-- AndroidX -->
     <preference name="AndroidXEnabled" value="true" />
@@ -89,7 +89,7 @@
     <!-- Plugins -->
     <plugin
         name="cordova-plugin-local-notification"
-        spec="^0.9.0-beta.3" />
+        spec="^1.2.3" />
 
     <plugin
         name="cordova-plugin-vibration"
