@@ -29,7 +29,6 @@ const Missions = (function () {
         }
     }
 
-    // ---------- ম্যাথ চ্যালেঞ্জ ----------
     function generateMath(difficulty) {
         let a, b, op = '+';
         if (difficulty === 'easy') {
@@ -39,7 +38,7 @@ const Missions = (function () {
             a = Math.floor(Math.random() * 900) + 100;
             b = Math.floor(Math.random() * 900) + 100;
             op = Math.random() > 0.5 ? '+' : '-';
-        } else { // hard
+        } else {
             a = Math.floor(Math.random() * 90) + 10;
             b = Math.floor(Math.random() * 90) + 10;
             op = '×';
@@ -76,7 +75,6 @@ const Missions = (function () {
         };
     }
 
-    // ---------- টাইপিং চ্যালেঞ্জ ----------
     function renderTyping(area) {
         const sentence = currentAlarm.typingSentence || 'আমি এখন ঘুম থেকে উঠছি';
         area.innerHTML = `
@@ -95,7 +93,6 @@ const Missions = (function () {
         };
     }
 
-    // ---------- পাসওয়ার্ড চ্যালেঞ্জ ----------
     function renderPassword(area) {
         area.innerHTML = `
             <div class="mission-question" style="font-size:20px;">🔑 পাসওয়ার্ড দিন</div>
@@ -113,7 +110,6 @@ const Missions = (function () {
         };
     }
 
-    // ---------- শেক চ্যালেঞ্জ ----------
     function renderShake(area) {
         let shakeCount = 0;
         const needed = 15;
@@ -141,67 +137,121 @@ const Missions = (function () {
         window.addEventListener('devicemotion', handleMotion);
     }
 
-    // ---------- ফটো ম্যাচ চ্যালেঞ্জ (Phase 2) ----------
+    // ---------- ফটো ম্যাচ চ্যালেঞ্জ — অটোমেটিক ছবি তুলনা (৭০%+ মিললেই বন্ধ হবে) ----------
+    const MATCH_THRESHOLD = 70;
+
+    function loadImg(dataUrl, cb) {
+        const img = new Image();
+        img.onload = () => cb(img);
+        img.src = dataUrl;
+    }
+
+    function grayscalePixels(img, size) {
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, size, size);
+        const data = ctx.getImageData(0, 0, size, size).data;
+        const gray = [];
+        for (let i = 0; i < data.length; i += 4) {
+            gray.push(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+        }
+        return gray;
+    }
+
+    function compareImages(dataUrlA, dataUrlB, callback) {
+        const SIZE = 24;
+        loadImg(dataUrlA, imgA => {
+            loadImg(dataUrlB, imgB => {
+                const gA = grayscalePixels(imgA, SIZE);
+                const gB = grayscalePixels(imgB, SIZE);
+                let diffSum = 0;
+                for (let i = 0; i < gA.length; i++) diffSum += Math.abs(gA[i] - gB[i]);
+                const avgDiff = diffSum / gA.length;
+                const similarity = Math.max(0, Math.min(100, 100 - (avgDiff / 255 * 100)));
+                callback(Math.round(similarity));
+            });
+        });
+    }
+
     function renderPhoto(area) {
         area.innerHTML = `
             <div class="mission-question" style="font-size:18px;">📷 রেফারেন্স ছবির জায়গাটির ছবি তুলুন</div>
             <p style="color:#94a3b8; font-size:13px; margin-bottom:10px;">যেমন: ওয়াশরুমের আয়না / ঘরের দরজা</p>
-            <img id="refPreview" class="camera-preview" src="${currentAlarm.photoRef || ''}" style="display:${currentAlarm.photoRef ? 'block' : 'none'}; opacity:0.5;">
-            <button class="mission-btn" id="missionSubmit">ক্যামেরা খুলুন</button>
-            <div class="mission-error" id="missionError">মিলেনি! আবার তুলুন।</div>
-            <p style="color:#64748b; font-size:11px; margin-top:14px;">
-                নোট: ছবি-ম্যাচিং (OpenCV.js ফিচার ম্যাচিং) Phase-2 আপডেটে যুক্ত হবে।
-                এখন পর্যন্ত এটি ম্যানুয়াল কনফার্মেশন হিসেবে কাজ করে — ছবি তোলার পর
-                "মিলে গেছে" চাপলে অ্যালার্ম বন্ধ হবে।
-            </p>
+            <img id="refPreview" class="camera-preview" src="${currentAlarm.photoRef || ''}" style="display:${currentAlarm.photoRef ? 'block' : 'none'}; opacity:0.6;">
+            <div style="display:flex; gap:10px; margin-top:14px;">
+                <button class="mission-btn" id="missionSubmitCamera" style="flex:1;">📷 ক্যামেরা</button>
+                <button class="mission-btn" id="missionSubmitGallery" style="flex:1; background:linear-gradient(145deg,#64748b,#475569);">🖼️ গ্যালারি</button>
+            </div>
+            <div id="matchStatus" style="margin-top:14px; font-size:14px; color:#94a3b8;"></div>
+            <div class="mission-error" id="missionError">মিলছে না (${MATCH_THRESHOLD}%-এর কম)! আবার তুলুন।</div>
         `;
-        document.getElementById('missionSubmit').onclick = function () {
+
+        function capture(useGallery) {
             if (window.navigator && navigator.camera) {
-                // ------- আসল APK-তে (নেটিভ ক্যামেরা প্লাগইন) -------
-                navigator.camera.getPicture(function (imageURI) {
-                    area.innerHTML += `
-                        <img class="camera-preview" src="${imageURI}">
-                        <button class="mission-btn" id="confirmMatch">মিলে গেছে ✔</button>
-                    `;
-                    document.getElementById('confirmMatch').onclick = succeed;
-                }, function () {
-                    alert('ক্যামেরা চালু করা যায়নি');
+                navigator.camera.getPicture(function (imageData) {
+                    checkMatch('data:image/jpeg;base64,' + imageData);
+                }, function (err) {
+                    console.warn('ছবি নেওয়া ব্যর্থ:', err);
                 }, {
                     quality: 60,
-                    destinationType: Camera.DestinationType.FILE_URI,
-                    sourceType: Camera.PictureSourceType.CAMERA
+                    destinationType: Camera.DestinationType.DATA_URL,
+                    sourceType: useGallery ? Camera.PictureSourceType.PHOTOLIBRARY : Camera.PictureSourceType.CAMERA,
+                    correctOrientation: true
                 });
             } else {
-                // ------- Spck/ব্রাউজার প্রিভিউ টেস্ট মোড (HTML5 file input দিয়ে) -------
-                let fileInput = document.getElementById('photoFallbackInput');
-                if (!fileInput) {
-                    fileInput = document.createElement('input');
-                    fileInput.type = 'file';
-                    fileInput.accept = 'image/*';
-                    fileInput.capture = 'environment';
-                    fileInput.id = 'photoFallbackInput';
-                    fileInput.style.display = 'none';
-                    document.body.appendChild(fileInput);
-                }
-                fileInput.onchange = function (e) {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                if (!useGallery) input.capture = 'environment';
+                input.onchange = function (e) {
                     const file = e.target.files[0];
                     if (!file) return;
                     const reader = new FileReader();
-                    reader.onload = function (ev) {
-                        area.innerHTML += `
-                            <img class="camera-preview" src="${ev.target.result}">
-                            <button class="mission-btn" id="confirmMatch">মিলে গেছে ✔</button>
-                        `;
-                        document.getElementById('confirmMatch').onclick = succeed;
-                    };
+                    reader.onload = ev => checkMatch(ev.target.result);
                     reader.readAsDataURL(file);
                 };
-                fileInput.click();
+                input.click();
             }
-        };
+        }
+
+        function checkMatch(dataUrl) {
+            const statusEl = document.getElementById('matchStatus');
+            const errorEl = document.getElementById('missionError');
+            errorEl.style.display = 'none';
+            statusEl.textContent = '⏳ মিল যাচাই হচ্ছে...';
+
+            const oldShot = area.querySelector('img.new-shot');
+            if (oldShot) oldShot.remove();
+            const preview = document.createElement('img');
+            preview.className = 'camera-preview new-shot';
+            preview.src = dataUrl;
+            statusEl.parentNode.insertBefore(preview, statusEl);
+
+            if (!currentAlarm.photoRef) {
+                statusEl.textContent = '';
+                area.innerHTML += `<button class="mission-btn" id="confirmMatch">মিলে গেছে ✔</button>`;
+                document.getElementById('confirmMatch').onclick = succeed;
+                return;
+            }
+
+            compareImages(currentAlarm.photoRef, dataUrl, function (similarity) {
+                if (similarity >= MATCH_THRESHOLD) {
+                    statusEl.innerHTML = `<span style="color:#34d399; font-weight:700;">✅ ${similarity}% মিলেছে — অ্যালার্ম বন্ধ হচ্ছে...</span>`;
+                    if (navigator.vibrate) navigator.vibrate(100);
+                    setTimeout(succeed, 600);
+                } else {
+                    statusEl.innerHTML = `<span style="color:#f87171; font-weight:700;">মাত্র ${similarity}% মিলেছে (দরকার ${MATCH_THRESHOLD}%+)</span>`;
+                    errorEl.style.display = 'block';
+                    if (navigator.vibrate) navigator.vibrate(300);
+                }
+            });
+        }
+
+        document.getElementById('missionSubmitCamera').onclick = () => capture(false);
+        document.getElementById('missionSubmitGallery').onclick = () => capture(true);
     }
 
-    // ---------- কোনো চ্যালেঞ্জ নেই ----------
     function renderNone(area) {
         area.innerHTML = `
             <div class="mission-question" style="font-size:20px;">অ্যালার্ম বন্ধ করুন</div>
