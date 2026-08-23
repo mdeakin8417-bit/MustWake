@@ -16,13 +16,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Node.js for Cordova CLI
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      # JDK 17 is required by current Android SDK command-line tools
+      # Android SDK setup requires JDK 17
       - name: Setup Java 17
         uses: actions/setup-java@v5
         with:
@@ -34,15 +33,12 @@ jobs:
           java -version
           echo "JAVA_HOME=$JAVA_HOME"
 
-      # Android SDK command-line tools
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
-        with:
-          packages: ''
 
-      # Cordova Android 11 requires these SDK packages
       - name: Install Android SDK 32
         run: |
+          yes | sdkmanager --licenses || true
           sdkmanager "platform-tools"
           sdkmanager "platforms;android-32"
           sdkmanager "build-tools;32.0.0"
@@ -50,8 +46,8 @@ jobs:
       - name: Verify Android SDK
         run: |
           sdkmanager --list_installed
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          ls -la "$ANDROID_HOME/build-tools/32.0.0"
+          test -d "$ANDROID_HOME/platforms/android-32"
+          test -d "$ANDROID_HOME/build-tools/32.0.0"
 
       # Cordova Android 11 uses JDK 11
       - name: Setup Java 11
@@ -60,19 +56,14 @@ jobs:
           distribution: 'temurin'
           java-version: '11'
 
-      - name: Verify Java 11
-        run: |
-          java -version
-          echo "JAVA_HOME=$JAVA_HOME"
-
-      # Cordova Android 11 uses Gradle 7.4.2
       - name: Setup Gradle 7.4.2
         uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '7.4.2'
 
-      - name: Verify Gradle
+      - name: Verify Build Toolchain
         run: |
+          java -version
           gradle --version
 
       - name: Install Cordova
@@ -81,6 +72,26 @@ jobs:
       - name: Add Android platform
         run: cordova platform add android@11.0.0
 
+      # Fix old local notification plugin:
+      # Gradle 7 removed the old "compile" dependency configuration.
+      - name: Patch Local Notification plugin for Gradle 7
+        run: |
+          FILE="platforms/android/cordova-plugin-local-notification/app-localnotification.gradle"
+
+          if [ -f "$FILE" ]; then
+            echo "Patching $FILE..."
+
+            sed -i \
+              "s/^[[:space:]]*compile[[:space:]]\\+['\"]me\\.leolin:ShortcutBadger:1\\.1\\.22@aar['\"]/    implementation 'me.leolin:ShortcutBadger:1.1.22@aar'/" \
+              "$FILE"
+
+            echo "Patched file:"
+            cat "$FILE"
+          else
+            echo "ERROR: Local notification Gradle file not found."
+            exit 1
+          fi
+
       - name: Verify Cordova environment
         run: |
           cordova --version
@@ -88,8 +99,14 @@ jobs:
           java -version
           gradle --version
 
+      # Explicitly use Android SDK 32
       - name: Build APK
-        run: cordova build android --release -- --packageType=apk
+        run: |
+          cordova build android --release -- \
+            --packageType=apk \
+            --gradleArg=-PcdvCompileSdkVersion=32 \
+            --gradleArg=-PcdvTargetSdkVersion=32 \
+            --gradleArg=-PcdvBuildToolsVersion=32.0.0
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
