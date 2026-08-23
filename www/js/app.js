@@ -4,7 +4,6 @@
 
 document.addEventListener('deviceready', onDeviceReady, false);
 
-// ব্রাউজার/Spck প্রিভিউর জন্য fallback (cordova.js না থাকলে deviceready কখনো ফায়ার হবে না)
 if (!window.cordova) {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', onDeviceReady, false);
@@ -53,31 +52,55 @@ function bindUI() {
         document.getElementById('photoRefWrap').style.display = this.value === 'photo' ? 'block' : 'none';
     };
 
-    // ---------- রেফারেন্স ছবি সিলেক্ট (কমপ্রেস করে ছোট সাইজে সেভ) ----------
-    document.getElementById('photoRefInput').onchange = function (e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function (ev) {
-            const img = new Image();
-            img.onload = function () {
-                const canvas = document.createElement('canvas');
-                const maxDim = 700;
-                let w = img.width, h = img.height;
-                if (w > h && w > maxDim) { h = h * maxDim / w; w = maxDim; }
-                else if (h > maxDim) { w = w * maxDim / h; h = maxDim; }
-                canvas.width = w; canvas.height = h;
-                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                pendingPhotoRefData = canvas.toDataURL('image/jpeg', 0.6);
-                const preview = document.getElementById('photoRefPreview');
-                preview.src = pendingPhotoRefData;
-                preview.style.display = 'block';
-                document.getElementById('photoRefStatus').textContent = '✅ রেফারেন্স ছবি সেভ হয়েছে';
-            };
-            img.src = ev.target.result;
+    function processPhotoRefDataUrl(dataUrl) {
+        const img = new Image();
+        img.onload = function () {
+            const canvas = document.createElement('canvas');
+            const maxDim = 700;
+            let w = img.width, h = img.height;
+            if (w > h && w > maxDim) { h = h * maxDim / w; w = maxDim; }
+            else if (h > maxDim) { w = w * maxDim / h; h = maxDim; }
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            pendingPhotoRefData = canvas.toDataURL('image/jpeg', 0.6);
+            const preview = document.getElementById('photoRefPreview');
+            preview.src = pendingPhotoRefData;
+            preview.style.display = 'block';
+            document.getElementById('photoRefStatus').textContent = '✅ রেফারেন্স ছবি সেভ হয়েছে';
         };
-        reader.readAsDataURL(file);
-    };
+        img.src = dataUrl;
+    }
+
+    function capturePhotoRef(useGallery) {
+        if (window.navigator && navigator.camera) {
+            navigator.camera.getPicture(function (imageData) {
+                processPhotoRefDataUrl('data:image/jpeg;base64,' + imageData);
+            }, function (err) {
+                console.warn('ছবি নেওয়া বাতিল/ব্যর্থ:', err);
+            }, {
+                quality: 60,
+                destinationType: Camera.DestinationType.DATA_URL,
+                sourceType: useGallery ? Camera.PictureSourceType.PHOTOLIBRARY : Camera.PictureSourceType.CAMERA,
+                correctOrientation: true
+            });
+        } else {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            if (!useGallery) input.capture = 'environment';
+            input.onchange = function (e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = ev => processPhotoRefDataUrl(ev.target.result);
+                reader.readAsDataURL(file);
+            };
+            input.click();
+        }
+    }
+
+    document.getElementById('btnPhotoRefCamera').onclick = () => capturePhotoRef(false);
+    document.getElementById('btnPhotoRefGallery').onclick = () => capturePhotoRef(true);
 
     document.getElementById('btnSaveAlarm').onclick = saveNewAlarm;
     document.getElementById('btnSnooze').onclick = handleSnoozeClick;
@@ -96,7 +119,6 @@ function bindUI() {
         document.getElementById('voiceRecordWrap').style.display = this.value === 'voice' ? 'block' : 'none';
     };
 
-    // ---------- ফোন থেকে কাস্টম অডিও ফাইল সিলেক্ট (কোনো সাইজ লিমিট নেই — ফাইল সিস্টেমে সেভ হবে) ----------
     document.getElementById('customAudioFile').onchange = function (e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -112,7 +134,6 @@ function bindUI() {
         reader.readAsDataURL(file);
     };
 
-    // ---------- আসল ফোনের ফাইল সিস্টেমে সেভ (localStorage-এর সাইজ সীমা এড়াতে) ----------
     function saveAudioPermanently(dataUrl, originalName, callback) {
         if (window.cordova && window.resolveLocalFileSystemURL && cordova.file) {
             const ext = (originalName.split('.').pop() || 'mp3').toLowerCase();
@@ -141,11 +162,9 @@ function bindUI() {
         }
     }
 
-    // ---------- ভয়েস রেকর্ডিং ----------
     document.getElementById('btnStartRecord').onclick = startVoiceRecording;
     document.getElementById('btnStopRecord').onclick = stopVoiceRecording;
 
-    // ---------- হোমপেজের ফিচার কার্ড ক্লিক করলে সরাসরি সেই সেকশনে যাওয়া ----------
     document.addEventListener('click', function (e) {
         const card = e.target.closest('.feature-card');
         if (!card) return;
@@ -253,7 +272,6 @@ function saveNewAlarm() {
     document.getElementById('voicePlayback').style.display = 'none';
     document.getElementById('photoRefStatus').textContent = '';
     document.getElementById('photoRefPreview').style.display = 'none';
-    document.getElementById('photoRefInput').value = '';
     document.querySelectorAll('#dayPicker .day.active').forEach(el => el.classList.remove('active'));
     showScreen('screen-home');
     renderAlarmList();
@@ -338,7 +356,6 @@ function deleteAlarm(id) {
     renderAlarmList();
 }
 
-// ---------- অ্যালার্ম বাজলে ----------
 let activeAlarm = null;
 
 function handleAlarmTrigger(alarmId) {
@@ -370,4 +387,4 @@ function handleSnoozeClick() {
     AlarmEngine.snooze(activeAlarm, 10);
     document.getElementById('screen-ring').classList.remove('active');
     activeAlarm = null;
-        }
+              }
