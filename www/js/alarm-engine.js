@@ -41,7 +41,6 @@ const AlarmEngine = (function () {
         }
     }
 
-    // অ্যালার্মের সময় থেকে পরবর্তী ট্রিগার ডেট বের করা
     function nextTriggerDate(alarm) {
         const [h, m] = alarm.time.split(':').map(Number);
         const now = new Date();
@@ -71,30 +70,21 @@ const AlarmEngine = (function () {
             text: 'অ্যালার্ম বাজছে — মিশন সম্পন্ন করুন',
             foreground: true,
             vibrate: true,
-            priority: 2,
             lockscreen: true,
             launch: true,
             wakeup: true,
             autoClear: false,
             sticky: true,
-            channel: 'mustwake_alarm_channel',
             androidChannelId: 'mustwake_alarm_channel',
+            androidChannelName: 'MustWake Alarms',
+            androidChannelImportance: 'IMPORTANCE_HIGH',
+            androidAlarmType: 'RTC_WAKEUP',
+            androidAllowWhileIdle: true,
             trigger: alarm.days && alarm.days.length > 0
                 ? { every: { hour: triggerDate.getHours(), minute: triggerDate.getMinutes() } }
                 : { at: triggerDate },
             data: { alarmId: alarm.id }
         };
-
-        // হাই-প্রায়োরিটি চ্যানেল তৈরি — এটা ছাড়া Android ব্যাকগ্রাউন্ড থেকে অ্যাপ খুলবে না
-        if (cordova.plugins.notification.local.createChannel) {
-            cordova.plugins.notification.local.createChannel({
-                id: 'mustwake_alarm_channel',
-                description: 'MustWake অ্যালার্ম নোটিফিকেশন',
-                importance: 5,
-                sound: true,
-                vibration: true
-            });
-        }
 
         cordova.plugins.notification.local.schedule(options);
     }
@@ -124,6 +114,14 @@ const AlarmEngine = (function () {
                 foreground: true,
                 vibrate: true,
                 lockscreen: true,
+                launch: true,
+                wakeup: true,
+                sticky: true,
+                androidChannelId: 'mustwake_alarm_channel',
+                androidChannelName: 'MustWake Alarms',
+                androidChannelImportance: 'IMPORTANCE_HIGH',
+                androidAlarmType: 'RTC_WAKEUP',
+                androidAllowWhileIdle: true,
                 data: { alarmId: alarm.id }
             });
         }
