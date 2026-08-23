@@ -5,224 +5,39 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-
-      # --------------------------------------------------
-      # 1. Checkout
-      # --------------------------------------------------
       - name: Checkout code
         uses: actions/checkout@v4
 
-
-      # --------------------------------------------------
-      # 2. Node.js
-      # --------------------------------------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
-
-      # --------------------------------------------------
-      # 3. JDK 17
-      # Required by current Android SDK command-line tools
-      # --------------------------------------------------
-      - name: Setup Java 17
-        uses: actions/setup-java@v5
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Verify Java 17
-        run: |
-          java -version
-          echo "JAVA_HOME=$JAVA_HOME"
-
-
-      # --------------------------------------------------
-      # 4. Android SDK
-      # --------------------------------------------------
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@v3
 
-
-      # --------------------------------------------------
-      # 5. Install exact Android SDK packages
-      # Required by cordova-android 11
-      # --------------------------------------------------
-      - name: Install Android SDK 32
-        run: |
-          yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools"
-          sdkmanager "platforms;android-32"
-          sdkmanager "build-tools;32.0.0"
-
-
-      # --------------------------------------------------
-      # 6. Verify Android SDK
-      # --------------------------------------------------
-      - name: Verify Android SDK
-        run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          test -d "$ANDROID_HOME/platforms/android-32"
-          test -d "$ANDROID_HOME/build-tools/32.0.0"
-          echo "Android SDK 32 installed successfully"
-
-
-      # --------------------------------------------------
-      # 7. JDK 11
-      # Required by cordova-android 11
-      # --------------------------------------------------
-      - name: Setup Java 11
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: '11'
-
-      - name: Verify Java 11
-        run: |
-          java -version
-          echo "JAVA_HOME=$JAVA_HOME"
-
-
-      # --------------------------------------------------
-      # 8. Gradle 7.4.2
-      # Required by cordova-android 11
-      # --------------------------------------------------
-      - name: Setup Gradle 7.4.2
-        uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: '7.4.2'
-
-      - name: Verify Gradle
-        run: |
-          gradle --version
-
-
-      # --------------------------------------------------
-      # 9. Install Cordova
-      # --------------------------------------------------
       - name: Install Cordova
-        run: |
-          npm install -g cordova@12.0.0
-          cordova --version
+        run: npm install -g cordova@13.0.0
 
+      - name: Add Android platform (pinned stable version)
+        run: cordova platform add android@13.0.0
 
-      # --------------------------------------------------
-      # 10. Add Cordova Android 11
-      # --------------------------------------------------
-      - name: Add Android platform
-        run: |
-          cordova platform add android@11.0.0
-          cordova platform ls
+      - name: Install plugins & build APK
+        run: cordova build android --release -- --packageType=apk
 
-
-      # --------------------------------------------------
-      # 11. Fix old Local Notification Gradle syntax
-      #
-      # Old:
-      # compile "me.leolin:ShortcutBadger:${appShortcutBadgerVersion}@aar"
-      #
-      # New:
-      # implementation "me.leolin:ShortcutBadger:${appShortcutBadgerVersion}@aar"
-      # --------------------------------------------------
-      - name: Patch Local Notification plugin
-        shell: bash
-        run: |
-          FILE="platforms/android/cordova-plugin-local-notification/app-localnotification.gradle"
-
-          echo "Checking plugin file..."
-
-          if [ ! -f "$FILE" ]; then
-            echo "ERROR: Plugin Gradle file not found:"
-            echo "$FILE"
-            exit 1
-          fi
-
-          echo ""
-          echo "========== BEFORE PATCH =========="
-          cat "$FILE"
-          echo "=================================="
-          echo ""
-
-          # Replace the old Gradle "compile" configuration
-          # with the Gradle 7 compatible "implementation".
-          sed -i \
-            's/^[[:space:]]*compile[[:space:]]\+/    implementation /' \
-            "$FILE"
-
-          echo ""
-          echo "========== AFTER PATCH =========="
-          cat "$FILE"
-          echo "================================="
-          echo ""
-
-          # Make sure old compile syntax is completely gone.
-          if grep -Eq '^[[:space:]]*compile[[:space:]]+' "$FILE"; then
-            echo "ERROR: Old Gradle compile() syntax still exists."
-            exit 1
-          fi
-
-          # Make sure ShortcutBadger now uses implementation.
-          if ! grep -Eq 'implementation[[:space:]]+["'\'']me\.leolin:ShortcutBadger:' "$FILE"; then
-            echo "ERROR: ShortcutBadger implementation dependency was not found."
-            exit 1
-          fi
-
-          echo "SUCCESS: Local Notification plugin patched successfully."
-
-
-      # --------------------------------------------------
-      # 12. Verify Cordova environment
-      # --------------------------------------------------
-      - name: Verify Cordova environment
-        run: |
-          echo "========== CORDOVA =========="
-          cordova --version
-
-          echo ""
-          echo "========== PLATFORMS =========="
-          cordova platform ls
-
-          echo ""
-          echo "========== JAVA =========="
-          java -version
-
-          echo ""
-          echo "========== GRADLE =========="
-          gradle --version
-
-
-      # --------------------------------------------------
-      # 13. Build APK
-      #
-      # cordova-android 11:
-      # compileSdkVersion = 32
-      # targetSdkVersion  = 32
-      # buildToolsVersion = 32.0.0
-      # --------------------------------------------------
-      - name: Build APK
-        run: |
-          cordova build android --release -- \
-            --packageType=apk \
-            --gradleArg=-PcdvCompileSdkVersion=32 \
-            --gradleArg=-PcdvSdkVersion=32 \
-            --gradleArg=-PcdvBuildToolsVersion=32.0.0
-
-
-      # --------------------------------------------------
-      # 14. Upload APK
-      # --------------------------------------------------
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: MustWake-apk
           path: platforms/android/app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
