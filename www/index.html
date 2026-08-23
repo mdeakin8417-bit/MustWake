@@ -89,9 +89,17 @@
                 <option value="typing">⌨️ বাক্য টাইপ করা</option>
                 <option value="password">🔑 কাস্টম পাসওয়ার্ড</option>
                 <option value="shake">🚶 শেক / মোশন চ্যালেঞ্জ</option>
-                <option value="photo">📷 ছবি ম্যাচ (আয়না/দরজা/অবজেক্ট) — Phase 2</option>
+                <option value="photo">📷 ছবি ম্যাচ (আয়না/দরজা/অবজেক্ট)</option>
                 <option value="none">চ্যালেঞ্জ ছাড়া (সাধারণ)</option>
             </select>
+        </div>
+
+        <div class="form-section" id="photoRefWrap" style="display:none;">
+            <label>📷 রেফারেন্স ছবি তুলুন (যেমন: ওয়াশরুমের আয়না / ঘরের দরজা)</label>
+            <p class="hint-text">অ্যালার্ম বাজলে ঠিক এই জায়গার ছবি আবার তুলতে হবে, নাহলে বন্ধ হবে না</p>
+            <input type="file" id="photoRefInput" accept="image/*" capture="environment" class="text-input">
+            <img id="photoRefPreview" class="camera-preview" style="display:none;">
+            <div id="photoRefStatus" class="file-status"></div>
         </div>
 
         <div class="form-section" id="mathDifficultyWrap">
@@ -150,4 +158,4 @@
     <script src="js/missions.js"></script>
     <script src="js/app.js"></script>
 </body>
-</html>
+    </html>
