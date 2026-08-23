@@ -12,14 +12,22 @@ const AlarmEngine = (function () {
     }
 
     function saveAll(alarms) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(alarms));
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(alarms));
+            return true;
+        } catch (e) {
+            console.error('Storage save failed:', e);
+            alert('⚠️ সেভ করা যায়নি! সম্ভবত কাস্টম রিংটোন/ভয়েস ফাইলের সাইজ অনেক বড়। ছোট (২ MB-এর কম) অডিও ফাইল বা ভয়েস রেকর্ডিং ব্যবহার করুন, অথবা একটা প্রিসেট রিংটোন (ক্লাসিক/জেন্টল/বেল ইত্যাদি) সিলেক্ট করুন।');
+            return false;
+        }
     }
 
     function add(alarm) {
         const alarms = getAll();
         alarm.id = Date.now();
         alarms.push(alarm);
-        saveAll(alarms);
+        const ok = saveAll(alarms);
+        if (!ok) return null;
         schedule(alarm);
         return alarm;
     }
@@ -41,7 +49,6 @@ const AlarmEngine = (function () {
         target.setHours(h, m, 0, 0);
 
         if (alarm.days && alarm.days.length > 0) {
-            // পুনরাবৃত্তিমূলক — cordova notification নিজেই handle করবে 'every' দিয়ে
             if (target <= now) target.setDate(target.getDate() + 1);
             return target;
         } else {
@@ -66,11 +73,28 @@ const AlarmEngine = (function () {
             vibrate: true,
             priority: 2,
             lockscreen: true,
+            launch: true,
+            wakeup: true,
+            autoClear: false,
+            sticky: true,
+            channel: 'mustwake_alarm_channel',
+            androidChannelId: 'mustwake_alarm_channel',
             trigger: alarm.days && alarm.days.length > 0
                 ? { every: { hour: triggerDate.getHours(), minute: triggerDate.getMinutes() } }
                 : { at: triggerDate },
             data: { alarmId: alarm.id }
         };
+
+        // হাই-প্রায়োরিটি চ্যানেল তৈরি — এটা ছাড়া Android ব্যাকগ্রাউন্ড থেকে অ্যাপ খুলবে না
+        if (cordova.plugins.notification.local.createChannel) {
+            cordova.plugins.notification.local.createChannel({
+                id: 'mustwake_alarm_channel',
+                description: 'MustWake অ্যালার্ম নোটিফিকেশন',
+                importance: 5,
+                sound: true,
+                vibration: true
+            });
+        }
 
         cordova.plugins.notification.local.schedule(options);
     }
@@ -93,7 +117,7 @@ const AlarmEngine = (function () {
         const snoozeTime = new Date(Date.now() + minutes * 60000);
         if (window.cordova && cordova.plugins && cordova.plugins.notification) {
             cordova.plugins.notification.local.schedule({
-                id: alarm.id + 900000, // আলাদা আইডি যেন কনফ্লিক্ট না হয়
+                id: alarm.id + 900000,
                 title: (alarm.label || 'MustWake') + ' (স্নুজ)',
                 text: 'স্নুজ শেষ — মিশন সম্পন্ন করুন',
                 trigger: { at: snoozeTime },
