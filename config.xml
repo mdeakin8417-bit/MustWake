@@ -1,114 +1,52 @@
-<?xml version="1.0" encoding="utf-8"?>
-
-<widget
-    id="com.mustwake.app"
-    version="1.0.0"
-    xmlns="http://www.w3.org/ns/widgets"
-    xmlns:cdv="http://cordova.apache.org/ns/1.0"
-    xmlns:android="http://schemas.android.com/apk/res/android">
-
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="com.mustwake.app" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
     <name>MustWake</name>
+    <description>একটি ডিজিটাল অ্যালার্ম অ্যাপ যা চ্যালেঞ্জ সম্পন্ন না করা পর্যন্ত বন্ধ হয় না</description>
+    <author email="you@example.com" href="https://github.com/">MustWake Team</author>
 
-    <description>
-        একটি ডিজিটাল অ্যালার্ম অ্যাপ যা চ্যালেঞ্জ সম্পন্ন না করা পর্যন্ত বন্ধ হয় না
-    </description>
-
-    <author
-        email="you@example.com"
-        href="https://github.com/">
-        MustWake Team
-    </author>
-
-    <!-- App entry point -->
     <content src="index.html" />
-
-    <!-- Network access -->
     <access origin="*" />
-
     <allow-intent href="http://*/*" />
     <allow-intent href="https://*/*" />
 
-    <!-- General settings -->
     <preference name="DisallowOverscroll" value="true" />
-
-    <!-- Android SDK -->
-    <!-- cordova-android 13.0.0 compatible SDK -->
     <preference name="android-minSdkVersion" value="24" />
     <preference name="android-targetSdkVersion" value="34" />
     <preference name="android-compileSdkVersion" value="34" />
-
-    <!-- AndroidX -->
     <preference name="AndroidXEnabled" value="true" />
-
-    <!-- Status bar -->
     <preference name="StatusBarOverlaysWebView" value="false" />
     <preference name="StatusBarBackgroundColor" value="#0f172a" />
 
-    <!-- Android configuration -->
     <platform name="android">
-
         <allow-intent href="market:*" />
+        <preference name="AndroidLaunchMode" value="singleTop" />
 
-        <preference
-            name="AndroidLaunchMode"
-            value="singleTop" />
+        <!-- অ্যালার্ম বাজার সময় লক স্ক্রিনের উপরেও অ্যাপ খুলে যাবে -->
+        <edit-config file="app/src/main/AndroidManifest.xml" mode="merge" target="/manifest/application/activity[@android:name='MainActivity']">
+            <activity android:showWhenLocked="true" android:turnScreenOn="true" />
+        </edit-config>
 
-        <!-- Android permissions -->
-        <config-file
-            target="AndroidManifest.xml"
-            parent="/manifest">
-
-            <uses-permission
-                android:name="android.permission.VIBRATE" />
-
-            <uses-permission
-                android:name="android.permission.WAKE_LOCK" />
-
-            <uses-permission
-                android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-
-            <uses-permission
-                android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-
-            <uses-permission
-                android:name="android.permission.USE_EXACT_ALARM" />
-
-            <uses-permission
-                android:name="android.permission.CAMERA" />
-
-            <uses-permission
-                android:name="android.permission.RECORD_AUDIO" />
-
-            <uses-permission
-                android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-
+        <config-file target="AndroidManifest.xml" parent="/manifest">
+            <uses-permission android:name="android.permission.VIBRATE" />
+            <uses-permission android:name="android.permission.WAKE_LOCK" />
+            <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+            <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+            <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+            <uses-permission android:name="android.permission.CAMERA" />
+            <uses-permission android:name="android.permission.RECORD_AUDIO" />
+            <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+            <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+            <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
         </config-file>
-
     </platform>
 
-    <!-- Plugins -->
-    <plugin
-        name="cordova-plugin-local-notification"
-        spec="^1.2.3" />
+    <plugin name="cordova-plugin-local-notification" spec="^1.2.3" />
+    <plugin name="cordova-plugin-vibration" spec="^3.1.1" />
+    <plugin name="cordova-plugin-camera" spec="^7.0.0" />
+    <plugin name="cordova-plugin-media" spec="^7.0.0" />
+    <plugin name="cordova-plugin-device" spec="^2.1.0" />
+    <plugin name="cordova-plugin-file" spec="^8.1.3" />
 
-    <plugin
-        name="cordova-plugin-vibration"
-        spec="^3.1.1" />
-
-    <plugin
-        name="cordova-plugin-camera"
-        spec="^7.0.0" />
-
-    <plugin
-        name="cordova-plugin-media"
-        spec="^7.0.0" />
-
-    <plugin
-        name="cordova-plugin-device"
-        spec="^2.1.0" />
-
-    <!-- UI / Orientation -->
     <preference name="ScrollEnabled" value="false" />
     <preference name="Orientation" value="portrait" />
-
 </widget>
