@@ -9,7 +9,6 @@ if (!window.cordova) {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', onDeviceReady, false);
     } else {
-        // DOM ইতিমধ্যে লোড হয়ে গেছে (স্ক্রিপ্ট body-এর শেষে থাকায়) — সাথে সাথে চালাও
         onDeviceReady();
     }
 }
@@ -51,6 +50,33 @@ function bindUI() {
         document.getElementById('mathDifficultyWrap').style.display = this.value === 'math' ? 'block' : 'none';
         document.getElementById('passwordWrap').style.display = this.value === 'password' ? 'block' : 'none';
         document.getElementById('typingWrap').style.display = this.value === 'typing' ? 'block' : 'none';
+        document.getElementById('photoRefWrap').style.display = this.value === 'photo' ? 'block' : 'none';
+    };
+
+    // ---------- রেফারেন্স ছবি সিলেক্ট (কমপ্রেস করে ছোট সাইজে সেভ) ----------
+    document.getElementById('photoRefInput').onchange = function (e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (ev) {
+            const img = new Image();
+            img.onload = function () {
+                const canvas = document.createElement('canvas');
+                const maxDim = 700;
+                let w = img.width, h = img.height;
+                if (w > h && w > maxDim) { h = h * maxDim / w; w = maxDim; }
+                else if (h > maxDim) { w = w * maxDim / h; h = maxDim; }
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                pendingPhotoRefData = canvas.toDataURL('image/jpeg', 0.6);
+                const preview = document.getElementById('photoRefPreview');
+                preview.src = pendingPhotoRefData;
+                preview.style.display = 'block';
+                document.getElementById('photoRefStatus').textContent = '✅ রেফারেন্স ছবি সেভ হয়েছে';
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
     };
 
     document.getElementById('btnSaveAlarm').onclick = saveNewAlarm;
@@ -70,17 +96,50 @@ function bindUI() {
         document.getElementById('voiceRecordWrap').style.display = this.value === 'voice' ? 'block' : 'none';
     };
 
-    // ---------- ফোন থেকে কাস্টম অডিও ফাইল সিলেক্ট ----------
+    // ---------- ফোন থেকে কাস্টম অডিও ফাইল সিলেক্ট (কোনো সাইজ লিমিট নেই — ফাইল সিস্টেমে সেভ হবে) ----------
     document.getElementById('customAudioFile').onchange = function (e) {
         const file = e.target.files[0];
         if (!file) return;
+        document.getElementById('customFileName').textContent = '⏳ প্রসেস হচ্ছে...';
         const reader = new FileReader();
         reader.onload = function (ev) {
-            pendingCustomAudioData = ev.target.result;
-            document.getElementById('customFileName').textContent = '✅ সিলেক্ট করা হয়েছে: ' + file.name;
+            const dataUrl = ev.target.result;
+            saveAudioPermanently(dataUrl, file.name, function (finalRef) {
+                pendingCustomAudioData = finalRef;
+                document.getElementById('customFileName').textContent = '✅ সিলেক্ট করা হয়েছে: ' + file.name + ' (' + (file.size / 1024 / 1024).toFixed(1) + ' MB)';
+            });
         };
         reader.readAsDataURL(file);
     };
+
+    // ---------- আসল ফোনের ফাইল সিস্টেমে সেভ (localStorage-এর সাইজ সীমা এড়াতে) ----------
+    function saveAudioPermanently(dataUrl, originalName, callback) {
+        if (window.cordova && window.resolveLocalFileSystemURL && cordova.file) {
+            const ext = (originalName.split('.').pop() || 'mp3').toLowerCase();
+            const filename = 'mustwake_audio_' + Date.now() + '.' + ext;
+            const byteString = atob(dataUrl.split(',')[1]);
+            const bytes = new Uint8Array(byteString.length);
+            for (let i = 0; i < byteString.length; i++) bytes[i] = byteString.charCodeAt(i);
+            const blob = new Blob([bytes]);
+
+            window.resolveLocalFileSystemURL(cordova.file.dataDirectory, function (dirEntry) {
+                dirEntry.getFile(filename, { create: true }, function (fileEntry) {
+                    fileEntry.createWriter(function (writer) {
+                        writer.onwriteend = function () {
+                            callback(fileEntry.toURL());
+                        };
+                        writer.onerror = function () {
+                            console.warn('ফাইল লেখা ব্যর্থ, বেস৬৪ ফলব্যাক ব্যবহার হচ্ছে');
+                            callback(dataUrl);
+                        };
+                        writer.write(blob);
+                    });
+                }, function () { callback(dataUrl); });
+            }, function () { callback(dataUrl); });
+        } else {
+            callback(dataUrl);
+        }
+    }
 
     // ---------- ভয়েস রেকর্ডিং ----------
     document.getElementById('btnStartRecord').onclick = startVoiceRecording;
@@ -106,6 +165,7 @@ function bindUI() {
 }
 
 let pendingCustomAudioData = null;
+let pendingPhotoRefData = null;
 let mediaRecorder = null;
 let recordedChunks = [];
 
@@ -122,11 +182,15 @@ function startVoiceRecording() {
             const blob = new Blob(recordedChunks, { type: 'audio/webm' });
             const reader = new FileReader();
             reader.onload = function (ev) {
-                pendingCustomAudioData = ev.target.result;
+                const dataUrl = ev.target.result;
                 const playback = document.getElementById('voicePlayback');
-                playback.src = pendingCustomAudioData;
+                playback.src = dataUrl;
                 playback.style.display = 'block';
-                document.getElementById('recordStatus').textContent = '✅ রেকর্ড সম্পন্ন — নিচে শুনে দেখুন';
+                document.getElementById('recordStatus').textContent = '⏳ সেভ হচ্ছে...';
+                saveAudioPermanently(dataUrl, 'voice.webm', function (finalRef) {
+                    pendingCustomAudioData = finalRef;
+                    document.getElementById('recordStatus').textContent = '✅ রেকর্ড সম্পন্ন — নিচে শুনে দেখুন';
+                });
             };
             reader.readAsDataURL(blob);
             stream.getTracks().forEach(t => t.stop());
@@ -158,12 +222,18 @@ function saveNewAlarm() {
     const time = document.getElementById('alarmTime').value;
     if (!time) { alert('সময় নির্বাচন করুন'); return; }
 
+    if (document.getElementById('missionType').value === 'photo' && !pendingPhotoRefData) {
+        alert('⚠️ ফটো ম্যাচ চ্যালেঞ্জের জন্য আগে একটা রেফারেন্স ছবি তুলতে হবে।');
+        return;
+    }
+
     const alarm = {
         time: time,
         label: document.getElementById('alarmLabel').value || 'অ্যালার্ম',
         days: [...selectedDays],
         ringtone: document.getElementById('ringtoneSelect').value,
         customAudioData: pendingCustomAudioData,
+        photoRef: pendingPhotoRefData,
         missionType: document.getElementById('missionType').value,
         mathDifficulty: document.getElementById('mathDifficulty').value,
         mathRounds: parseInt(document.getElementById('mathRounds').value, 10) || 1,
@@ -173,12 +243,17 @@ function saveNewAlarm() {
         gradualVolume: document.getElementById('gradualVolume').checked
     };
 
-    AlarmEngine.add(alarm);
+    const savedAlarm = AlarmEngine.add(alarm);
+    if (!savedAlarm) return;
     selectedDays = [];
     pendingCustomAudioData = null;
+    pendingPhotoRefData = null;
     document.getElementById('customFileName').textContent = '';
     document.getElementById('recordStatus').textContent = '';
     document.getElementById('voicePlayback').style.display = 'none';
+    document.getElementById('photoRefStatus').textContent = '';
+    document.getElementById('photoRefPreview').style.display = 'none';
+    document.getElementById('photoRefInput').value = '';
     document.querySelectorAll('#dayPicker .day.active').forEach(el => el.classList.remove('active'));
     showScreen('screen-home');
     renderAlarmList();
@@ -279,7 +354,6 @@ function handleAlarmTrigger(alarmId) {
     Ringtones.play(activeAlarm.ringtone || 'classic', activeAlarm.customAudioData);
 
     Missions.start(activeAlarm, function () {
-        // মিশন সফল — অ্যালার্ম বন্ধ
         document.getElementById('screen-ring').classList.remove('active');
         Ringtones.stop();
         if (window.cordova && cordova.plugins && cordova.plugins.notification) {
@@ -296,4 +370,4 @@ function handleSnoozeClick() {
     AlarmEngine.snooze(activeAlarm, 10);
     document.getElementById('screen-ring').classList.remove('active');
     activeAlarm = null;
-}
+        }
