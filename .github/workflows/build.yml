@@ -126,7 +126,12 @@ jobs:
 
       # --------------------------------------------------
       # 11. Fix old Local Notification Gradle syntax
-      # compile -> implementation
+      #
+      # Old:
+      # compile "me.leolin:ShortcutBadger:${appShortcutBadgerVersion}@aar"
+      #
+      # New:
+      # implementation "me.leolin:ShortcutBadger:${appShortcutBadgerVersion}@aar"
       # --------------------------------------------------
       - name: Patch Local Notification plugin
         shell: bash
@@ -141,27 +146,37 @@ jobs:
             exit 1
           fi
 
-          echo "Before patch:"
+          echo ""
+          echo "========== BEFORE PATCH =========="
           cat "$FILE"
+          echo "=================================="
+          echo ""
 
-          sed -i -E \
-            "s/^[[:space:]]*compile[[:space:]]+(['\"]me\.leolin:ShortcutBadger:1\.1\.22@aar['\"])/    implementation \1/" \
+          # Replace the old Gradle "compile" configuration
+          # with the Gradle 7 compatible "implementation".
+          sed -i \
+            's/^[[:space:]]*compile[[:space:]]\+/    implementation /' \
             "$FILE"
 
-          echo "After patch:"
+          echo ""
+          echo "========== AFTER PATCH =========="
           cat "$FILE"
+          echo "================================="
+          echo ""
 
-          if grep -Eq '^[[:space:]]*compile[[:space:]]+.*ShortcutBadger' "$FILE"; then
-            echo "ERROR: Old compile syntax still exists."
+          # Make sure old compile syntax is completely gone.
+          if grep -Eq '^[[:space:]]*compile[[:space:]]+' "$FILE"; then
+            echo "ERROR: Old Gradle compile() syntax still exists."
             exit 1
           fi
 
-          if ! grep -Eq 'implementation[[:space:]]+.*ShortcutBadger' "$FILE"; then
-            echo "ERROR: ShortcutBadger implementation dependency not found."
+          # Make sure ShortcutBadger now uses implementation.
+          if ! grep -Eq 'implementation[[:space:]]+["'\'']me\.leolin:ShortcutBadger:' "$FILE"; then
+            echo "ERROR: ShortcutBadger implementation dependency was not found."
             exit 1
           fi
 
-          echo "Local Notification Gradle syntax fixed successfully."
+          echo "SUCCESS: Local Notification plugin patched successfully."
 
 
       # --------------------------------------------------
@@ -169,20 +184,29 @@ jobs:
       # --------------------------------------------------
       - name: Verify Cordova environment
         run: |
+          echo "========== CORDOVA =========="
           cordova --version
+
+          echo ""
+          echo "========== PLATFORMS =========="
           cordova platform ls
+
+          echo ""
+          echo "========== JAVA =========="
           java -version
+
+          echo ""
+          echo "========== GRADLE =========="
           gradle --version
 
 
       # --------------------------------------------------
       # 13. Build APK
       #
-      # IMPORTANT:
-      # cdvSdkVersion = targetSdkVersion
-      # cdvCompileSdkVersion = compileSdkVersion
-      #
-      # Both are explicitly 32.
+      # cordova-android 11:
+      # compileSdkVersion = 32
+      # targetSdkVersion  = 32
+      # buildToolsVersion = 32.0.0
       # --------------------------------------------------
       - name: Build APK
         run: |
