@@ -95,9 +95,12 @@
         </div>
 
         <div class="form-section" id="photoRefWrap" style="display:none;">
-            <label>📷 রেফারেন্স ছবি তুলুন (যেমন: ওয়াশরুমের আয়না / ঘরের দরজা)</label>
+            <label>📷 রেফারেন্স ছবি (যেমন: ওয়াশরুমের আয়না / ঘরের দরজা)</label>
             <p class="hint-text">অ্যালার্ম বাজলে ঠিক এই জায়গার ছবি আবার তুলতে হবে, নাহলে বন্ধ হবে না</p>
-            <input type="file" id="photoRefInput" accept="image/*" capture="environment" class="text-input">
+            <div style="display:flex; gap:10px;">
+                <button type="button" id="btnPhotoRefCamera" class="record-btn" style="background:linear-gradient(145deg,#38bdf8,#0284c7); flex:1;">📷 ক্যামেরা দিয়ে তুলুন</button>
+                <button type="button" id="btnPhotoRefGallery" class="record-btn" style="background:linear-gradient(145deg,#64748b,#475569); flex:1;">🖼️ গ্যালারি থেকে</button>
+            </div>
             <img id="photoRefPreview" class="camera-preview" style="display:none;">
             <div id="photoRefStatus" class="file-status"></div>
         </div>
@@ -158,4 +161,4 @@
     <script src="js/missions.js"></script>
     <script src="js/app.js"></script>
 </body>
-    </html>
+</html>
