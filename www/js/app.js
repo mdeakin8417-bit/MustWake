@@ -20,6 +20,39 @@ function onDeviceReady() {
     renderAlarmList();
     startLiveClock();
     bindUI();
+    checkAlarmPermissions();
+    blockBackButtonDuringAlarm();
+}
+
+function blockBackButtonDuringAlarm() {
+    document.addEventListener('backbutton', function (e) {
+        const ringScreen = document.getElementById('screen-ring');
+        if (ringScreen && ringScreen.classList.contains('active')) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (navigator.vibrate) navigator.vibrate(100);
+            return false;
+        }
+        if (document.getElementById('screen-create').classList.contains('active')) {
+            showScreen('screen-home');
+        } else {
+            navigator.app.exitApp();
+        }
+    }, false);
+}
+
+function checkAlarmPermissions() {
+    if (!window.cordova || !cordova.plugins || !cordova.plugins.notification) return;
+
+    cordova.plugins.notification.local.hasPermission(function (granted) {
+        if (!granted) {
+            cordova.plugins.notification.local.requestPermission(function (accepted) {
+                if (!accepted) {
+                    alert('⚠️ নোটিফিকেশন পারমিশন দেওয়া না থাকলে অ্যালার্ম ব্যাকগ্রাউন্ডে বাজবে না। Settings → Apps → MustWake → Permissions থেকে অনুমতি দিন।');
+                }
+            });
+        }
+    });
 }
 
 function startLiveClock() {
@@ -387,4 +420,4 @@ function handleSnoozeClick() {
     AlarmEngine.snooze(activeAlarm, 10);
     document.getElementById('screen-ring').classList.remove('active');
     activeAlarm = null;
-              }
+                         }
