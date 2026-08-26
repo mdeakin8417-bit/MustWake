@@ -21,7 +21,6 @@
         <allow-intent href="market:*" />
         <preference name="AndroidLaunchMode" value="singleTop" />
 
-        <!-- অ্যালার্ম বাজার সময় লক স্ক্রিনের উপরেও অ্যাপ খুলে যাবে -->
         <edit-config file="app/src/main/AndroidManifest.xml" mode="merge" target="/manifest/application/activity[@android:name='MainActivity']">
             <activity android:showWhenLocked="true" android:turnScreenOn="true" />
         </edit-config>
@@ -37,6 +36,7 @@
             <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
             <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
             <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+            <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
         </config-file>
     </platform>
 
