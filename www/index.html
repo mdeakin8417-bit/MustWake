@@ -66,13 +66,11 @@
             </select>
             <button type="button" id="btnPreviewTone" class="preview-tone-btn">▶ শুনে দেখুন</button>
 
-            <!-- ফোন থেকে অডিও ফাইল সিলেক্ট -->
             <div id="customFileWrap" class="sub-panel" style="display:none;">
                 <input type="file" id="customAudioFile" accept="audio/*" class="text-input">
                 <div id="customFileName" class="file-status"></div>
             </div>
 
-            <!-- ভয়েস রেকর্ডিং প্যানেল -->
             <div id="voiceRecordWrap" class="sub-panel" style="display:none;">
                 <p class="hint-text">যেমন: "ইয়াকিন, ঘুম থেকে ওঠো" অথবা "এখন পড়ার সময়" — যা খুশি রেকর্ড করুন</p>
                 <button type="button" id="btnStartRecord" class="record-btn">🎙️ রেকর্ড শুরু করুন</button>
@@ -97,6 +95,7 @@
         <div class="form-section" id="photoRefWrap" style="display:none;">
             <label>📷 রেফারেন্স ছবি (যেমন: ওয়াশরুমের আয়না / ঘরের দরজা)</label>
             <p class="hint-text">অ্যালার্ম বাজলে ঠিক এই জায়গার ছবি আবার তুলতে হবে, নাহলে বন্ধ হবে না</p>
+            <p style="color:#fbbf24; font-size:12px; margin-bottom:10px;">💡 টিপস: ফ্রেমে কমপক্ষে ৩টা আলাদা জিনিস/অংশ রাখুন — পরে সবকটা হুবহু না মিললেও চলবে, বেশিরভাগ ঠিক থাকলেই অ্যালার্ম বন্ধ হবে।</p>
             <div style="display:flex; gap:10px;">
                 <button type="button" id="btnPhotoRefCamera" class="record-btn" style="background:linear-gradient(145deg,#38bdf8,#0284c7); flex:1;">📷 ক্যামেরা দিয়ে তুলুন</button>
                 <button type="button" id="btnPhotoRefGallery" class="record-btn" style="background:linear-gradient(145deg,#64748b,#475569); flex:1;">🖼️ গ্যালারি থেকে</button>
@@ -149,7 +148,6 @@
         <div class="ring-label" id="ringLabel">অ্যালার্ম</div>
 
         <div id="missionArea" class="mission-area">
-            <!-- ডায়নামিকভাবে জেনারেট হবে -->
         </div>
 
         <button id="btnSnooze" class="snooze-btn">১০ মিনিট স্নুজ</button>
