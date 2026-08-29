@@ -42,20 +42,91 @@ function blockBackButtonDuringAlarm() {
 }
 
 function checkAlarmPermissions() {
+    if (!window.cordova || !cordova.plugins || !cordova.plugins.notification) {
+        renderPermissionBanner('preview');
+        return;
+    }
+    try {
+        const maybePromise = cordova.plugins.notification.local.hasPermission(function (granted) {
+            handlePermissionResult(granted);
+        });
+        if (maybePromise && typeof maybePromise.then === 'function') {
+            maybePromise.then(handlePermissionResult).catch(function (e) {
+                console.warn('hasPermission promise error:', e);
+                renderPermissionBanner('unknown');
+            });
+        }
+    } catch (e) {
+        console.warn('Permission check failed:', e);
+        renderPermissionBanner('unknown');
+    }
+}
+
+function handlePermissionResult(granted) {
+    if (granted) {
+        renderPermissionBanner('granted');
+    } else {
+        renderPermissionBanner('denied');
+    }
+}
+
+function requestAlarmPermissionManually() {
     if (!window.cordova || !cordova.plugins || !cordova.plugins.notification) return;
     try {
-        cordova.plugins.notification.local.hasPermission(function (granted) {
-            if (!granted) {
-                cordova.plugins.notification.local.requestPermission(function (accepted) {
-                    if (!accepted) {
-                        alert('⚠️ নোটিফিকেশন পারমিশন দেওয়া না থাকলে অ্যালার্ম ব্যাকগ্রাউন্ডে বাজবে না। Settings → Apps → MustWake → Permissions থেকে অনুমতি দিন।');
-                    }
-                });
+        const maybePromise = cordova.plugins.notification.local.requestPermission(function (accepted) {
+            renderPermissionBanner(accepted ? 'granted' : 'denied');
+            if (!accepted) {
+                alert('⚠️ অনুমতি দেওয়া হয়নি। Settings → Apps → MustWake → Permissions → Notifications-এ গিয়ে ম্যানুয়ালি "Allow" করে দিন।');
             }
         });
+        if (maybePromise && typeof maybePromise.then === 'function') {
+            maybePromise.then(function (accepted) {
+                renderPermissionBanner(accepted ? 'granted' : 'denied');
+            }).catch(function (e) { console.warn(e); });
+        }
     } catch (e) {
-        console.warn('Permission check skipped (plugin API mismatch):', e);
+        console.warn('requestPermission failed:', e);
     }
+}
+
+function renderPermissionBanner(status) {
+    const el = document.getElementById('permBanner');
+    if (!el) return;
+    if (status === 'granted') {
+        el.innerHTML = '✅ নোটিফিকেশন পারমিশন দেওয়া আছে — ব্যাকগ্রাউন্ডে অ্যালার্ম বাজতে পারবে';
+        el.style.background = 'rgba(52,211,153,0.15)';
+        el.style.borderColor = 'rgba(52,211,153,0.35)';
+        el.style.color = '#34d399';
+        el.onclick = null;
+    } else if (status === 'denied') {
+        el.innerHTML = '❌ নোটিফিকেশন পারমিশন নেই! এখানে চাপুন অনুমতি দিতে (নাহলে ব্যাকগ্রাউন্ডে অ্যালার্ম বাজবে না)';
+        el.style.background = 'rgba(248,113,113,0.15)';
+        el.style.borderColor = 'rgba(248,113,113,0.35)';
+        el.style.color = '#f87171';
+        el.onclick = requestAlarmPermissionManually;
+    } else if (status === 'preview') {
+        el.innerHTML = 'ℹ️ প্রিভিউ মোড — আসল পারমিশন শুধু APK ইনস্টলের পরে চেক হবে';
+        el.style.background = 'rgba(148,163,184,0.15)';
+        el.style.borderColor = 'rgba(148,163,184,0.35)';
+        el.style.color = '#94a3b8';
+        el.onclick = null;
+    } else {
+        el.innerHTML = '⚠️ পারমিশন স্ট্যাটাস যাচাই করা যায়নি — এখানে চাপুন ম্যানুয়ালি চেষ্টা করতে';
+        el.style.background = 'rgba(251,191,36,0.15)';
+        el.style.borderColor = 'rgba(251,191,36,0.35)';
+        el.style.color = '#fbbf24';
+        el.onclick = requestAlarmPermissionManually;
+    }
+    el.style.display = 'block';
+}
+
+function resetAllAlarms() {
+    if (!confirm('সব অ্যালার্ম মুছে ফেলতে চান? এটা ফিরিয়ে আনা যাবে না।')) return;
+    const alarms = AlarmEngine.getAll();
+    alarms.forEach(function (a) { AlarmEngine.remove(a.id); });
+    localStorage.removeItem('smart_alarms_v1');
+    renderAlarmList();
+    alert('✅ সব অ্যালার্ম মুছে ফেলা হয়েছে। এখন নতুন করে অ্যালার্ম তৈরি করুন।');
 }
 
 function startLiveClock() {
@@ -69,14 +140,15 @@ function startLiveClock() {
 }
 
 function bindUI() {
-    document.getElementById('btnAddAlarm').onclick = function () { showScreen('screen-create'); };
-    document.getElementById('btnCancelCreate').onclick = function () { showScreen('screen-home'); };
+    document.getElementById('btnAddAlarm').onclick = () => showScreen('screen-create');
+    document.getElementById('btnCancelCreate').onclick = () => showScreen('screen-home');
+    document.getElementById('btnResetAll').onclick = resetAllAlarms;
 
-    document.querySelectorAll('#dayPicker .day').forEach(function (el) {
+    document.querySelectorAll('#dayPicker .day').forEach(el => {
         el.onclick = function () {
             const d = parseInt(this.dataset.day, 10);
             this.classList.toggle('active');
-            if (selectedDays.includes(d)) selectedDays = selectedDays.filter(function (x) { return x !== d; });
+            if (selectedDays.includes(d)) selectedDays = selectedDays.filter(x => x !== d);
             else selectedDays.push(d);
         };
     });
@@ -128,15 +200,15 @@ function bindUI() {
                 const file = e.target.files[0];
                 if (!file) return;
                 const reader = new FileReader();
-                reader.onload = function (ev) { processPhotoRefDataUrl(ev.target.result); };
+                reader.onload = ev => processPhotoRefDataUrl(ev.target.result);
                 reader.readAsDataURL(file);
             };
             input.click();
         }
     }
 
-    document.getElementById('btnPhotoRefCamera').onclick = function () { capturePhotoRef(false); };
-    document.getElementById('btnPhotoRefGallery').onclick = function () { capturePhotoRef(true); };
+    document.getElementById('btnPhotoRefCamera').onclick = () => capturePhotoRef(false);
+    document.getElementById('btnPhotoRefGallery').onclick = () => capturePhotoRef(true);
 
     document.getElementById('btnSaveAlarm').onclick = saveNewAlarm;
     document.getElementById('btnSnooze').onclick = handleSnoozeClick;
@@ -206,7 +278,7 @@ function bindUI() {
         if (!card) return;
         const target = card.dataset.target;
         showScreen('screen-create');
-        setTimeout(function () {
+        setTimeout(() => {
             if (target === 'ringtone') {
                 document.getElementById('ringtoneSelect').focus();
                 document.getElementById('ringtoneSelect').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -232,7 +304,7 @@ function startVoiceRecording() {
     navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
         recordedChunks = [];
         mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.ondataavailable = function (e) { recordedChunks.push(e.data); };
+        mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
         mediaRecorder.onstop = function () {
             const blob = new Blob(recordedChunks, { type: 'audio/webm' });
             const reader = new FileReader();
@@ -248,7 +320,7 @@ function startVoiceRecording() {
                 });
             };
             reader.readAsDataURL(blob);
-            stream.getTracks().forEach(function (t) { t.stop(); });
+            stream.getTracks().forEach(t => t.stop());
         };
         mediaRecorder.start();
         document.getElementById('btnStartRecord').style.display = 'none';
@@ -269,7 +341,7 @@ function stopVoiceRecording() {
 }
 
 function showScreen(id) {
-    document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
 }
 
@@ -285,7 +357,7 @@ function saveNewAlarm() {
     const alarm = {
         time: time,
         label: document.getElementById('alarmLabel').value || 'অ্যালার্ম',
-        days: selectedDays.slice(),
+        days: [...selectedDays],
         ringtone: document.getElementById('ringtoneSelect').value,
         customAudioData: pendingCustomAudioData,
         photoRef: pendingPhotoRefData,
@@ -308,7 +380,7 @@ function saveNewAlarm() {
     document.getElementById('voicePlayback').style.display = 'none';
     document.getElementById('photoRefStatus').textContent = '';
     document.getElementById('photoRefPreview').style.display = 'none';
-    document.querySelectorAll('#dayPicker .day.active').forEach(function (el) { el.classList.remove('active'); });
+    document.querySelectorAll('#dayPicker .day.active').forEach(el => el.classList.remove('active'));
     showScreen('screen-home');
     renderAlarmList();
 }
@@ -320,27 +392,67 @@ function renderAlarmList() {
     const missionNames = { math: '🔢 ম্যাথ', typing: '⌨️ টাইপিং', password: '🔑 পাসওয়ার্ড', shake: '🚶 শেক', photo: '📷 ফটো ম্যাচ', none: 'সাধারণ' };
 
     if (alarms.length === 0) {
-        list.innerHTML = '<div class="empty-state"><div class="empty-icon">⏰</div><h2>কোনো অ্যালার্ম নেই</h2><p>নিচের + বাটনে চেপে আপনার প্রথম অ্যালার্ম যোগ করুন</p></div>' +
-            '<div class="feature-grid">' +
-            '<div class="feature-card" data-target="math"><div class="feature-icon">🔢</div><div class="feature-title">ম্যাথ চ্যালেঞ্জ</div><div class="feature-desc">অঙ্ক সমাধান না করা পর্যন্ত অ্যালার্ম বন্ধ হবে না</div></div>' +
-            '<div class="feature-card" data-target="photo"><div class="feature-icon">📷</div><div class="feature-title">ফটো ম্যাচ</div><div class="feature-desc">নির্দিষ্ট জায়গার ছবি তুলে অ্যালার্ম বন্ধ করুন</div></div>' +
-            '<div class="feature-card" data-target="password"><div class="feature-icon">🔑</div><div class="feature-title">পাসওয়ার্ড লক</div><div class="feature-desc">কাস্টম পাসওয়ার্ড ছাড়া বন্ধ হবে না</div></div>' +
-            '<div class="feature-card" data-target="shake"><div class="feature-icon">🚶</div><div class="feature-title">শেক চ্যালেঞ্জ</div><div class="feature-desc">ফোন ঝাঁকিয়ে ঘুম তাড়াতে হবে</div></div>' +
-            '<div class="feature-card" data-target="typing"><div class="feature-icon">⌨️</div><div class="feature-title">টাইপিং টাস্ক</div><div class="feature-desc">নির্দিষ্ট বাক্য টাইপ করে জাগতে হবে</div></div>' +
-            '<div class="feature-card" data-target="ringtone"><div class="feature-icon">🔊</div><div class="feature-title">কাস্টম রিংটোন/ভয়েস</div><div class="feature-desc">গান, গজল বা নিজের ভয়েস রেকর্ড করে সেট করুন</div></div>' +
-            '</div>' +
-            '<div class="tip-banner">💡 <b>টিপ:</b> অ্যালার্ম তৈরির পর কার্ডের "টেস্ট" বাটনে চাপুন — সাথে সাথে রিং স্ক্রিন ও মিশন দেখতে পারবেন।</div>';
+        list.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">⏰</div>
+                <h2>কোনো অ্যালার্ম নেই</h2>
+                <p>নিচের + বাটনে চেপে আপনার প্রথম অ্যালার্ম যোগ করুন</p>
+            </div>
+            <div class="feature-grid">
+                <div class="feature-card" data-target="math">
+                    <div class="feature-icon">🔢</div>
+                    <div class="feature-title">ম্যাথ চ্যালেঞ্জ</div>
+                    <div class="feature-desc">অঙ্ক সমাধান না করা পর্যন্ত অ্যালার্ম বন্ধ হবে না</div>
+                </div>
+                <div class="feature-card" data-target="photo">
+                    <div class="feature-icon">📷</div>
+                    <div class="feature-title">ফটো ম্যাচ</div>
+                    <div class="feature-desc">নির্দিষ্ট জায়গার ছবি তুলে অ্যালার্ম বন্ধ করুন</div>
+                </div>
+                <div class="feature-card" data-target="password">
+                    <div class="feature-icon">🔑</div>
+                    <div class="feature-title">পাসওয়ার্ড লক</div>
+                    <div class="feature-desc">কাস্টম পাসওয়ার্ড ছাড়া বন্ধ হবে না</div>
+                </div>
+                <div class="feature-card" data-target="shake">
+                    <div class="feature-icon">🚶</div>
+                    <div class="feature-title">শেক চ্যালেঞ্জ</div>
+                    <div class="feature-desc">ফোন ঝাঁকিয়ে ঘুম তাড়াতে হবে</div>
+                </div>
+                <div class="feature-card" data-target="typing">
+                    <div class="feature-icon">⌨️</div>
+                    <div class="feature-title">টাইপিং টাস্ক</div>
+                    <div class="feature-desc">নির্দিষ্ট বাক্য টাইপ করে জাগতে হবে</div>
+                </div>
+                <div class="feature-card" data-target="ringtone">
+                    <div class="feature-icon">🔊</div>
+                    <div class="feature-title">কাস্টম রিংটোন/ভয়েস</div>
+                    <div class="feature-desc">গান, গজল বা নিজের ভয়েস রেকর্ড করে সেট করুন</div>
+                </div>
+            </div>
+            <div class="tip-banner">
+                💡 <b>টিপ:</b> অ্যালার্ম তৈরির পর কার্ডের "টেস্ট" বাটনে চাপুন — সাথে সাথে রিং স্ক্রিন ও মিশন দেখতে পারবেন, সময়ের জন্য অপেক্ষা করা লাগবে না।
+            </div>
+        `;
         return;
     }
 
-    list.innerHTML = alarms.map(function (a) {
-        return '<div class="alarm-card"><div><div class="time">' + a.time + '</div>' +
-            '<div class="meta">' + a.label + ' ' + (a.days.length ? '· ' + a.days.map(function (d) { return dayNames[d]; }).join(',') : '· একবার') + '</div>' +
-            '<div class="tag-row"><span class="mission-tag">' + (missionNames[a.missionType] || 'সাধারণ') + '</span>' +
-            '<span class="mission-tag tone-tag">' + (Ringtones.LABELS[a.ringtone] || '🔔') + '</span></div></div>' +
-            '<div class="card-actions"><button class="test-btn" onclick="testAlarm(' + a.id + ')">টেস্ট</button>' +
-            '<button class="del-btn" onclick="deleteAlarm(' + a.id + ')">🗑</button></div></div>';
-    }).join('');
+    list.innerHTML = alarms.map(a => `
+        <div class="alarm-card">
+            <div>
+                <div class="time">${a.time}</div>
+                <div class="meta">${a.label} ${a.days.length ? '· ' + a.days.map(d => dayNames[d]).join(',') : '· একবার'}</div>
+                <div class="tag-row">
+                    <span class="mission-tag">${missionNames[a.missionType] || 'সাধারণ'}</span>
+                    <span class="mission-tag tone-tag">${Ringtones.LABELS[a.ringtone] || '🔔'}</span>
+                </div>
+            </div>
+              <div class="card-actions">
+                <button class="test-btn" onclick="testAlarm(${a.id})">টেস্ট</button>
+                <button class="del-btn" onclick="deleteAlarm(${a.id})">🗑</button>
+            </div>
+        </div>
+    `).join('');
 }
 
 function testAlarm(id) {
@@ -356,7 +468,7 @@ let activeAlarm = null;
 
 function handleAlarmTrigger(alarmId) {
     const alarms = AlarmEngine.getAll();
-    activeAlarm = alarms.find(function (a) { return a.id === alarmId; });
+    activeAlarm = alarms.find(a => a.id === alarmId);
     if (!activeAlarm) return;
 
     document.getElementById('ringTime').textContent = activeAlarm.time;
@@ -383,4 +495,4 @@ function handleSnoozeClick() {
     AlarmEngine.snooze(activeAlarm, 10);
     document.getElementById('screen-ring').classList.remove('active');
     activeAlarm = null;
-        }
+}
