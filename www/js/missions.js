@@ -170,14 +170,14 @@ const Missions = (function () {
         }
         const mean = sum / count;
         const variance = Math.max(0, sumSq / count - mean * mean);
-        return { mean: mean, std: Math.sqrt(variance) };
+        return { mean, std: Math.sqrt(variance) };
     }
 
     function compareImages(dataUrlA, dataUrlB, callback) {
         const SAMPLE = 60;
         const cellSize = SAMPLE / GRID_SIZE;
-        loadImg(dataUrlA, function (imgA) {
-            loadImg(dataUrlB, function (imgB) {
+        loadImg(dataUrlA, imgA => {
+            loadImg(dataUrlB, imgB => {
                 const gA = getGrayscaleGrid(imgA, SAMPLE);
                 const gB = getGrayscaleGrid(imgB, SAMPLE);
                 let matchedCells = 0;
@@ -205,7 +205,7 @@ const Missions = (function () {
         area.innerHTML = `
             <div class="mission-question" style="font-size:18px;">📷 রেফারেন্স ছবির জায়গাটির ছবি তুলুন</div>
             <p style="color:#94a3b8; font-size:13px; margin-bottom:6px;">যেমন: ওয়াশরুমের আয়না / ঘরের দরজা</p>
-            <p style="color:#fbbf24; font-size:12px; margin-bottom:10px;">টিপস: ফ্রেমে কমপক্ষে ৩টা আলাদা জিনিস/অংশ রাখুন — সবকটা হুবহু না মিললেও চলবে।</p>
+            <p style="color:#fbbf24; font-size:12px; margin-bottom:10px;">💡 টিপস: ফ্রেমে কমপক্ষে ৩টা আলাদা জিনিস/অংশ রাখুন — সবকটা হুবহু না মিললেও চলবে, বেশিরভাগ অংশ ঠিকঠাক থাকলেই অ্যালার্ম বন্ধ হয়ে যাবে।</p>
             <img id="refPreview" class="camera-preview" src="${currentAlarm.photoRef || ''}" style="display:${currentAlarm.photoRef ? 'block' : 'none'}; opacity:0.6;">
             <div style="display:flex; gap:10px; margin-top:14px;">
                 <button class="mission-btn" id="missionSubmitCamera" style="flex:1;">📷 ক্যামেরা</button>
@@ -236,7 +236,7 @@ const Missions = (function () {
                     const file = e.target.files[0];
                     if (!file) return;
                     const reader = new FileReader();
-                    reader.onload = function (ev) { checkMatch(ev.target.result); };
+                    reader.onload = ev => checkMatch(ev.target.result);
                     reader.readAsDataURL(file);
                 };
                 input.click();
@@ -247,37 +247,35 @@ const Missions = (function () {
             const statusEl = document.getElementById('matchStatus');
             const errorEl = document.getElementById('missionError');
             errorEl.style.display = 'none';
-            statusEl.textContent = 'মিল যাচাই হচ্ছে...';
+            statusEl.textContent = '⏳ মিল যাচাই হচ্ছে...';
 
             const oldShot = area.querySelector('img.new-shot');
-            if (oldShot) { oldShot.remove(); }
+            if (oldShot) oldShot.remove();
             const preview = document.createElement('img');
             preview.className = 'camera-preview new-shot';
             preview.src = dataUrl;
             statusEl.parentNode.insertBefore(preview, statusEl);
 
             if (!currentAlarm.photoRef) {
-                statusEl.textContent = '';
-                area.innerHTML += '<button class="mission-btn" id="confirmMatch">মিলে গেছে</button>';
-                document.getElementById('confirmMatch').onclick = succeed;
+                statusEl.innerHTML = '<span style="color:#f87171; font-weight:700;">⚠️ এই অ্যালার্মে কোনো রেফারেন্স ছবি সেভ নেই (পুরনো ডেটা)! হোমপেজে গিয়ে "রিসেট" চেপে এই অ্যালার্ম মুছে নতুন করে তৈরি করুন।</span>';
                 return;
             }
 
             compareImages(currentAlarm.photoRef, dataUrl, function (similarity, matchedCells, totalCells) {
                 if (similarity >= OVERALL_MATCH_THRESHOLD) {
-                    statusEl.innerHTML = '<span style="color:#34d399; font-weight:700;">' + matchedCells + '/' + totalCells + ' অংশ মিলেছে (' + similarity + '%) — অ্যালার্ম বন্ধ হচ্ছে...</span>';
+                    statusEl.innerHTML = `<span style="color:#34d399; font-weight:700;">✅ ${matchedCells}/${totalCells} অংশ মিলেছে (${similarity}%) — অ্যালার্ম বন্ধ হচ্ছে...</span>`;
                     if (navigator.vibrate) navigator.vibrate(100);
                     setTimeout(succeed, 600);
                 } else {
-                    statusEl.innerHTML = '<span style="color:#f87171; font-weight:700;">মাত্র ' + matchedCells + '/' + totalCells + ' অংশ মিলেছে (' + similarity + '%, দরকার ' + OVERALL_MATCH_THRESHOLD + '%+)</span>';
+                    statusEl.innerHTML = `<span style="color:#f87171; font-weight:700;">মাত্র ${matchedCells}/${totalCells} অংশ মিলেছে (${similarity}%, দরকার ${OVERALL_MATCH_THRESHOLD}%+)</span>`;
                     errorEl.style.display = 'block';
                     if (navigator.vibrate) navigator.vibrate(300);
                 }
             });
         }
 
-        document.getElementById('missionSubmitCamera').onclick = function () { capture(false); };
-        document.getElementById('missionSubmitGallery').onclick = function () { capture(true); };
+        document.getElementById('missionSubmitCamera').onclick = () => capture(false);
+        document.getElementById('missionSubmitGallery').onclick = () => capture(true);
     }
 
     function renderNone(area) {
@@ -292,5 +290,5 @@ const Missions = (function () {
         if (onSuccessCallback) onSuccessCallback();
     }
 
-    return { start: start };
+    return { start };
 })();
